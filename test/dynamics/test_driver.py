@@ -22,6 +22,8 @@ import numpy as np
 import netket as nk
 import netket.experimental as nkx
 
+from netket.experimental.driver.tdvp import DefaultTDVPSolver
+
 
 SEED = 214748364
 
@@ -145,7 +147,9 @@ def test_one_step_lindbladian(integrator):
         vstate,
         integrator,
         propagation_type="real",
-        linear_solver=partial(nk.optimizer.solver.svd, rcond=1e-3),
+        tdvp_solver=DefaultTDVPSolver(
+            linear_solver=partial(nk.optimizer.solver.svd, rcond=1e-3),
+        ),
     )
     te.run(T=0.01, callback=_stop_after_one_step)
     assert te.t > 0.0

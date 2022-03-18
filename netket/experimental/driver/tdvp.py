@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Callable, Optional, Sequence, Union
+from typing import Any, Callable, Optional, Sequence, Union
 import warnings
 
 import jax
@@ -30,7 +30,7 @@ from netket.logging.json_log import JsonLog
 from netket.operator import AbstractOperator
 from netket.optimizer import LinearOperator
 from netket.optimizer.qgt import QGTAuto
-from netket.utils import mpi
+from netket.utils import mpi, struct
 from netket.utils.dispatch import dispatch
 from netket.utils.types import PyTree
 from netket.vqs import VariationalState, VariationalMixedState, MCState
@@ -55,8 +55,7 @@ class TDVP(AbstractVariationalDriver):
         t0: float = 0.0,
         propagation_type="real",
         qgt: LinearOperator = None,
-        linear_solver=None,
-        linear_solver_restart: bool = False,
+        tdvp_solver: Callable = None,
         error_norm: Union[str, Callable] = "euclidean",
     ):
         r"""
@@ -87,10 +86,12 @@ class TDVP(AbstractVariationalDriver):
         """
         self._t0 = t0
 
-        if linear_solver is None:
-            linear_solver = nk.optimizer.solver.svd
+        if tdvp_solver is None:
+            tdvp_solver = DefaultTDVPSolver(
+                linear_solver=nk.optimizer.solver.svd, restart=False
+            )
         if qgt is None:
-            qgt = QGTAuto(solver=linear_solver)
+            qgt = QGTAuto(solver=tdvp_solver.linear_solver)
 
         super().__init__(
             variational_state, optimizer=None, minimized_quantity_name="Generator"
@@ -122,8 +123,7 @@ class TDVP(AbstractVariationalDriver):
                 raise ValueError("propagation_type must be one of 'real', 'imag'")
 
         self.qgt = qgt
-        self.linear_solver = linear_solver
-        self.linear_solver_restart = linear_solver_restart
+        self.tdvp_solver = tdvp_solver
 
         self._dw = None  # type: PyTree
         self._last_qgt = None
@@ -444,7 +444,7 @@ class TDVP(AbstractVariationalDriver):
             for name, obj in [
                 ("generator     ", self._generator_repr),
                 ("integrator    ", self._integrator),
-                ("linear solver ", self.linear_solver),
+                ("tdvp_solver   ", self.tdvp_solver),
                 ("state         ", self.state),
             ]
         ]
@@ -487,6 +487,16 @@ def qgt_norm(driver: TDVP, x: PyTree):
     return jnp.sqrt(jnp.real(xc_dot_y))
 
 
+@struct.dataclass
+class DefaultTDVPSolver:
+    linear_solver: Callable
+    restart: bool = False
+
+    def __call__(self, state, driver, qgt, grad, **kwargs):
+        x0 = None if self.restart else kwargs.get("initial_dw", None)
+        return qgt.solve(self.linear_solver, grad, x0=x0)
+
+
 @dispatch
 def odefun(state, driver, t, w, **kwargs):
     # pylint: disable=unused-argument
@@ -512,8 +522,13 @@ def odefun(state: MCState, driver: TDVP, t, w, *, stage=0):  # noqa: F811
     if stage == 0:  # TODO: This does not work with FSAL.
         driver._last_qgt = qgt
 
-    initial_dw = None if driver.linear_solver_restart else driver._dw
-    driver._dw, _ = qgt.solve(driver.linear_solver, driver._loss_grad, x0=initial_dw)
+    driver._dw, _ = driver.tdvp_solver(
+        state,
+        driver,
+        qgt,
+        driver._loss_grad,
+        initial_dw=driver._dw,
+    )
     return driver._dw
 
 
