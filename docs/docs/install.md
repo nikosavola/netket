@@ -233,7 +233,7 @@ yourself by summing all the local terms. See the {ref}`Operators` documentation
 for more informations.
 
 ```python
-ma = nk.models.RBM(alpha=1, dtype=float)
+ma = nk.models.RBM(alpha=1, param_dtype=float)
 
 sa = nk.sampler.MetropolisLocal(hi, n_chains=16)
 ```
