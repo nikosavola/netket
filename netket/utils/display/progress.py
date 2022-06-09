@@ -20,9 +20,10 @@ from rich.markdown import Text
 from rich.style import Style
 from rich.color import Color
 
-from rich.progress import ProgressColumn
+from rich.progress import ProgressColumn, BarColumn
 
 import colorsys
+from .repr import color_good_bad, color_curve
 
 
 class TimerColumn(ProgressColumn):
@@ -66,9 +67,8 @@ class ProgressSpeedColumn(ProgressColumn):
 
         if speed >= 10:
             return Text(f"{speed:>3.1f}it/s", style="progress.data.speed")
-        else:
-            speedm1 = speed ** -1
-            return Text(f"{speedm1:>3.1f}s/it", style="progress.data.speed")
+        speedm1 = speed ** -1
+        return Text(f"{speedm1:>3.1f}s/it", style="progress.data.speed")
 
 
 class StatsDisplayColumn(ProgressColumn):
@@ -87,5 +87,23 @@ class StatsDisplayColumn(ProgressColumn):
                 loss_data_text = loss_stats.__repr__()
             res.append(loss_data_text)
             return res
-        else:
-            return Text()
+        return Text()
+
+
+class ColorBarColumn(BarColumn):
+    """Colored progress bar.
+    
+    Gets coloring by the `color_by` argument which fetches an attribute from task returned by Rich.
+    """
+
+    def __init__(self, *args, color_by='percentage', **kwargs) -> None:
+        self.color_by = color_by
+        # self.bar_width = None
+        super().__init__(*args, **kwargs)
+
+    def render(self, task: "Task") -> Text:
+        r"""Gets a progress bar colored using :math:`\hat{R}` for a task."""
+        self.complete_style = Style(
+            color=color_good_bad(color_curve(getattr(task, self.color_by)))
+        )
+        return super().render(task)

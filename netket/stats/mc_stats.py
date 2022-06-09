@@ -55,20 +55,6 @@ def _format_decimal(value, std, var):
 _NaN = float("NaN")
 
 
-@jax.jit
-def _color_curve(R_hat, k=5):
-    """
-    Takes the value of R_hat and return a value between 0 and 1.
-
-    The k higher the k variable the faster the output will get to 1.
-    The value of 5 has been chosen empirically.
-    """
-    # center from 0...1...2 to 0...\inf
-    x = abs(1 - R_hat)
-    # sigmoid
-    return 2 * (jnp.exp(k * x) / (1 + jnp.exp(k * x)) - 0.5)
-
-
 @display.rich_repr
 @struct.dataclass
 class Stats:
@@ -103,7 +89,7 @@ class Stats:
                 Text(
                     "{:.4f}".format(self.R_hat),
                     style=Style(
-                        color=display.color_good_bad(float(_color_curve(self.R_hat)))
+                        color=display.color_good_bad(display.color_curve(abs(1 - self.R_hat) / 0.05, k=4.5))
                     ),
                 )
             )

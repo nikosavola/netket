@@ -16,6 +16,8 @@ from typing import Any, Dict, Iterable
 
 from datetime import timedelta
 
+import jax
+from jax import numpy as jnp
 import rich
 from rich.console import Console
 from rich.markdown import Text
@@ -25,6 +27,17 @@ from rich.color import Color
 from rich.progress import ProgressColumn
 
 import colorsys
+
+
+@jax.jit
+def color_curve(x, k=2):
+    """
+    Takes the value of :math:`x` between 0 and 1, and adds non-linearity to it using the Sigmoid function.
+
+    The higher the k variable, the faster the output will get to 1.
+    """
+    # sigmoid
+    return jax.nn.sigmoid(k * x)
 
 
 def color_good_bad(value: float):
@@ -71,10 +84,9 @@ def _repr_mimebundle_from_rich_(
     return data
 
 
-def rich_repr(clz):
+def rich_repr(clz, /):
     """
-    Class decorator setting the repr method to use
-    `rich`.
+    Class decorator setting the repr method to use `rich`.
     """
     setattr(clz, "__repr__", __repr_from_rich__)
     setattr(clz, "_repr_mimebundle_", _repr_mimebundle_from_rich_)

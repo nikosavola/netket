@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .repr import rich_repr
-from .repr import color_good_bad
+from .repr import rich_repr, color_good_bad, color_curve
 
-from .progress import TimerColumn, ProgressSpeedColumn, StatsDisplayColumn
+from .progress import TimerColumn, ProgressSpeedColumn, StatsDisplayColumn, ColorBarColumn

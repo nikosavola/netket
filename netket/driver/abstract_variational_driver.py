@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import abc
+from asyncio import AbstractEventLoop
 import numbers
 from functools import partial
 
@@ -24,7 +25,7 @@ from jax.tree_util import tree_map
 from netket.logging import JsonLog
 from netket.utils import mpi
 
-from rich.progress import Progress
+from rich.progress import Progress, TextColumn
 from netket.utils import display
 
 
@@ -42,29 +43,6 @@ def _to_iterable(maybe_iterable):
     return surely_iterable
 
 
-# Progress bar style for AbstractVariationalDriver
-from rich.progress import (
-    BarColumn,
-    SpinnerColumn,
-    Progress,
-    TextColumn,
-)
-
-
-def _progress_bar(**kwargs):
-    return Progress(
-        TextColumn("[bold blue]" "({task.percentage:>3.1f}%)", justify="right"),
-        BarColumn(bar_width=None),
-        "{task.completed}/{task.total}",
-        "[",
-        display.TimerColumn(),
-        "•",
-        display.ProgressSpeedColumn(),
-        "•",
-        display.StatsDisplayColumn(),
-        "]",
-        **kwargs,
-    )
 
 
 # Note: to implement a new Driver (see also _vmc.py for an example)
@@ -273,7 +251,7 @@ class AbstractVariationalDriver(abc.ABC):
         callbacks = _to_iterable(callback)
         callback_stop = False
 
-        progress = _progress_bar(disable=not show_progress)
+        progress = AbstractVariationalDriver._progress_bar(disable=not show_progress)
         with progress:
             old_step = self.step_count
             first_step = True
@@ -365,6 +343,22 @@ class AbstractVariationalDriver(abc.ABC):
             Nothing. The log dictionary should be modified in place.
         """
         pass  # pragma: no cover
+
+    @staticmethod
+    def _progress_bar(**kwargs):
+        return Progress(
+            TextColumn("[bold blue]" "({task.percentage:>3.1f}%)", justify="right"),
+            display.ColorBarColumn(color_by='percentage'),
+            "{task.completed}/{task.total}",
+            "[",
+            display.TimerColumn(),
+            "•",
+            display.ProgressSpeedColumn(),
+            "•",
+            display.StatsDisplayColumn(),
+            "]",
+            **kwargs,
+        )
 
 
 @partial(jax.jit, static_argnums=0)
